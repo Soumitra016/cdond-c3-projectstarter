@@ -47,9 +47,9 @@ jobs:
              cd frontend
              npm install
              npm run test
-      - save_cache:
-          paths: [frontend/node_modules]
-          key: frontend-test
+   #   - save_cache:
+    #      paths: [frontend/test_results]
+     #     key: frontend-test
                 
   test-backend:
     docker:
@@ -64,9 +64,9 @@ jobs:
              cd backend
              npm install
              npm run test
-      - save_cache:
-          paths: [backend/node_modules]
-          key: backend-test
+    #  - save_cache:
+     #     paths: [backend/node_modules]
+      #    key: backend-test
 workflows:
   default:
     jobs:
