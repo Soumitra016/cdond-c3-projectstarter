@@ -169,6 +169,4 @@ workflows:
       #    requires: [build-backend]
      # - scan-frontend:
       #    requires: [build-frontend]    
-      - destroy_environment:
-          id: ${CIRCLE_WORKFLOW_ID:0:7}
-          when: on_fail
+      
