@@ -155,7 +155,31 @@ jobs:
       # Here's where you will add some code to rollback on failure 
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
-          when: on_fail          
+          when: on_fail    
+  configure-infrastructure:
+    docker:
+      - image: python:3.9.0-alpine
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: ["2d:45:5d:b9:30:28:20:7d:23:36:8b:75:74:33:24:27:fb:02:bc:56"]
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update curl tar ansible
+            curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o "awscliv2.zip"
+            unzip awscliv2.zip
+            ./aws/install
+      - run:
+          name: Configure server
+          command: |
+            cd .circleci/ansible/
+            ansible-playbook -i inventory.txt configure-server.yml
+      - destroy_environment:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail              
 workflows:
   default:
     jobs:
@@ -175,3 +199,6 @@ workflows:
             branches:
               only:
                 - master
+      - configure-infrastructure:
+          requires:
+            - deploy-infrastructure          
