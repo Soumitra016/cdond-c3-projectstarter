@@ -133,6 +133,7 @@ jobs:
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" 
       - run:
           name: Ensure front-end infrastructure exist
+          no_output_timeout: 50m
           command: |
             aws cloudformation deploy \
               --template-file .circleci/files/frontend.yml \
