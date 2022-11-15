@@ -30,7 +30,7 @@ commands:
       - run:
           name: Revert migrations
           command: |
-            SUCCESS=$(curl -k https://kvdb.io/H4KneaxVtWzSt5gGengeHf/migration_<< parameters.workflow_id >>)
+            SUCCESS=$(curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/migration_<< parameters.workflow_id >>)
             if(( $SUCCESS==1 )); 
             then
               cd ~/project/backend
@@ -150,6 +150,11 @@ jobs:
               --tags project=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7} \
               --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" 
+            BACKEND_IP=$(aws ec2 describe-instances \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
+              --filters "Name=tag:project,Values=udacity-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --output text)  
+            curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/backendip -d "$BACKEND_IP"  
       - run:
           name: Ensure front-end infrastructure exist
           command: |
@@ -223,7 +228,7 @@ jobs:
             cd ./backend          
             if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
             then
-              curl -k https://kvdb.io/H4KneaxVtWzSt5gGengeHf/migration${CIRCLE_WORKFLOW_ID:0:7} -d "1"
+              curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/migration${CIRCLE_WORKFLOW_ID:0:7} -d "1"
             fi
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
@@ -246,7 +251,7 @@ jobs:
       - run:
           name: Get backend url
           command: |
-            export BACKEND_IP=$(curl -k https://kvdb.io/H4KneaxVtWzSt5gGengeHf/backendip)
+            export BACKEND_IP=$(curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/backendip)
             export API_URL="http://$BACKEND_IP:3030"
             echo "${API_URL}"
             echo API_URL="http://${BACKEND_IP}:3030" >> frontend/.env
@@ -319,7 +324,7 @@ jobs:
           name: Get backend url and execute smoke test
           command: |
             # Fetch and prepare the BACKEND_IP env var
-            export BACKEND_IP=$(curl -k https://kvdb.io/H4KneaxVtWzSt5gGengeHf/backendip)
+            export BACKEND_IP=$(curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/backendip)
             export API_URL="http://$BACKEND_IP:3030"
             echo "${API_URL}"
             curl -k "${API_URL}/api/status"
