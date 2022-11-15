@@ -327,7 +327,12 @@ jobs:
             export BACKEND_IP=$(curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/backendip)
             export API_URL="http://$BACKEND_IP:3030"
             echo "${API_URL}"
-            curl -k "${API_URL}/api/status"
+            if curl "${API_URL}/api/status" | grep "ok"
+            then
+              return 0
+            else
+              return 1
+            fi
       - run:
           name: Frontend smoke test.
           command: |
