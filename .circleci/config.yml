@@ -9,15 +9,15 @@ commands:
         type: string
     steps:
       - run:
-          name: Destroy udacity backend stack
+          name: Destroy udapeople backend stack
           command: |
-            aws cloudformation delete-stack --stack-name udacity-backend-<< parameters.id >>
+            aws cloudformation delete-stack --stack-name udapeople-backend-<< parameters.id >>
           when: << parameters.when >>
       - run:
-          name: Destroy udacity frontend stack alongwith s3 butcket
+          name: Destroy udapeople frontend stack alongwith s3 butcket
           command: |
-            aws s3 rm s3://udacity-<< parameters.id >> --recursive
-            aws cloudformation delete-stack --stack-name udacity-frontend-<< parameters.id >>
+            aws s3 rm s3://udapeople-<< parameters.id >> --recursive
+            aws cloudformation delete-stack --stack-name udapeople-frontend-<< parameters.id >>
           when: << parameters.when >>           
 jobs:
   build-frontend:
@@ -133,7 +133,6 @@ jobs:
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" 
       - run:
           name: Ensure front-end infrastructure exist
-          no_output_timeout: 50m
           command: |
             aws cloudformation deploy \
               --template-file .circleci/files/frontend.yml \
@@ -180,7 +179,149 @@ jobs:
             ansible-playbook -i inventory.txt configure-server.yml
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
-          when: on_fail              
+          when: on_fail    
+  run-migrations:
+    docker:
+      - image: circleci/node:13.8.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .      
+      - run:
+          name: Run migrations
+          command: |
+            curl -k "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install          
+            cd backend
+            npm install
+            npm audit fix
+            npm audit fix --audit-level=critical --force
+            npm run migrations > migrations_dump.txt
+      - run:
+          name: Send migration results to kvdb
+          command: |
+            cd ./backend          
+            if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
+            then
+              curl -k https://kvdb.io/H4KneaxVtWzSt5gGengeHf/migration${CIRCLE_WORKFLOW_ID:0:7} -d "1"
+            fi
+      - destroy_environment:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail
+  deploy-frontend:
+    docker:
+      - image: circleci/node:13.8.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .      
+      - run:
+          name: Install dependencies
+          command: |
+            sudo apt-get update -y
+            sudo apt-get install -y tar
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+      - run:
+          name: Get backend url
+          command: |
+            export BACKEND_IP=$(curl -k https://kvdb.io/H4KneaxVtWzSt5gGengeHf/backendip)
+            export API_URL="http://$BACKEND_IP:3030"
+            echo "${API_URL}"
+            echo API_URL="http://${BACKEND_IP}:3030" >> frontend/.env
+            cat frontend/.env
+      - run:
+          name: Deploy frontend objects
+          command: |
+            cd frontend
+            npm install
+            npm run build
+            tar -czvf artifact-"${CIRCLE_WORKFLOW_ID:0:7}".tar.gz dist
+            aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+      - destroy_environment:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail
+      - revert_migrations:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail          
+      
+  deploy-backend:
+    docker:
+      - image: python:3.9.0-alpine
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: ["ca:84:21:0e:63:76:73:a8:bf:a7:70:ee:83:70:84:14:c4:73:c9:90"]
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update curl tar ansible rsync openssh nodejs npm
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            ./aws/install
+      - run:
+          name: Deploy backend
+          command: |
+            cd backend
+            npm i
+            npm run build
+            cd ..
+            # Zip the directory
+            tar -C backend -czvf artifact.tar.gz .
+            cd .circleci/ansible
+            echo "Contents  of the inventory.txt file is -------"
+            cat inventory.txt
+            ansible-playbook -i inventory.txt --ssh-common-args='-o StrictHostKeyChecking=no' -e 'host_key_checking=False' deploy-backend.yml
+      - destroy_environment:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail
+      - revert_migrations:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail 
+  smoke-test:
+    docker:
+      - image: python:3.9.0-alpine
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update curl nodejs npm
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            ./aws/install
+      - run:
+          name: Get backend url and execute smoke test
+          command: |
+            # Fetch and prepare the BACKEND_IP env var
+            export BACKEND_IP=$(curl -k https://kvdb.io/H4KneaxVtWzSt5gGengeHf/backendip)
+            export API_URL="http://$BACKEND_IP:3030"
+            echo "${API_URL}"
+            curl -k "${API_URL}/api/status"
+      - run:
+          name: Frontend smoke test.
+          command: |
+            URL="http://udapeople-${CIRCLE_WORKFLOW_ID:0:7}.s3-website-us-east-1.amazonaws.com/#/employees"            
+            echo ${URL} 
+            if curl -s ${URL} | grep "Welcome"
+            then
+                # Change this to 0 after the job fails
+              return 1
+            else
+              return 1
+            fi
+      - destroy_environment:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail
+      - revert_migrations:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail                          
 workflows:
   default:
     jobs:
@@ -202,4 +343,33 @@ workflows:
                 - master
       - configure-infrastructure:
           requires:
-            - deploy-infrastructure          
+            - deploy-infrastructure  
+      - run-migrations:
+          requires:
+            - test-backend
+            - test-frontend
+            - scan-backend
+            - scan-frontend
+            - configure-infrastructure
+          filters:
+            branches:
+              only:
+                - master            
+      - deploy-backend:
+          requires:
+            - test-backend
+            - test-frontend
+            - scan-backend
+            - scan-frontend
+            - configure-infrastructure
+      - deploy-frontend:
+          requires:
+            - test-backend
+            - test-frontend
+            - scan-backend
+            - scan-frontend
+            - configure-infrastructure
+      - smoke-test:
+          requires:
+            - deploy-backend
+            - deploy-frontend              
