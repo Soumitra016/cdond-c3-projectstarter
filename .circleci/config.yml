@@ -251,7 +251,7 @@ jobs:
       - run:
           name: Get backend url
           command: |
-            export BACKEND_IP=$(curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/backendip)
+            export BACKEND_IP=$(aws ec2 describe-instances)
             export API_URL="http://$BACKEND_IP:3030"
             echo "${API_URL}"
             echo API_URL="http://${BACKEND_IP}:3030" >> frontend/.env
@@ -324,7 +324,7 @@ jobs:
           name: Get backend url and execute smoke test
           command: |
             # Fetch and prepare the BACKEND_IP env var
-            export BACKEND_IP=$(curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/backendip)
+            export BACKEND_IP=$(aws ec2 describe-instances)
             export API_URL="http://$BACKEND_IP:3030"
             echo "${API_URL}"
             if curl "${API_URL}/api/status" | grep "ok"
