@@ -154,7 +154,6 @@ jobs:
               --query 'Reservations[*].Instances[*].PublicIpAddress' \
               --filters "Name=tag:project,Values=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --output text)  
-            curl -k https://kvdb.io/VFBMzWTxZwZ2gP4WZswc18/backendip -d "$BACKEND_IP"  
       - run:
           name: Ensure front-end infrastructure exist
           command: |
@@ -198,8 +197,8 @@ jobs:
       - run:
           name: Configure server
           command: |
-            cd .circleci/ansible/
-            ansible-playbook -i inventory.txt configure-server.yml
+            cat .circleci/ansible/inventory.txt
+            ansible-playbook -i .circleci/ansible/inventory.txt .circleci/ansible/configure-server.yml
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail    
