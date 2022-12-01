@@ -208,14 +208,26 @@ jobs:
       - run:
           name: Run migrations
           command: |
-            curl -k "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install          
             cd backend
+            echo ENVIRONMENT=production > ".env"
+            echo TYPEORM_CONNECTION=postgres >> ".env"
+            echo TYPEORM_ENTITIES=./src/modules/domain/*/*/*.entity.ts >> ".env"
+            echo TYPEORM_MIGRATIONS=./src/migrations/*.ts >> ".env"
+            echo TYPEORM_MIGRATIONS_DIR=./src/migrations >> ".env"
+            echo TYPEORM_HOST=$TYPEORM_HOST >> ".env"
+            echo TYPEORM_PORT=$TYPEORM_PORT >> ".env"
+            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> ".env"
+            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> ".env"
+            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> ".env"
+            echo "npm install"
             npm install
-            npm audit fix
-            npm audit fix --audit-level=critical --force
+            echo $?
+            echo "npm migrations"
             npm run migrations > migrations_dump.txt
+            echo $?
+            echo "----------------------------------"
+            cat migrations_dump.txt 
+            echo "----------------------------------"
       - run:
           name: Send migration results to kvdb
           command: |
@@ -376,13 +388,13 @@ workflows:
       - deploy-backend:
           requires:
             - test-backend
-            - test-frontend
+            - run-migrations
 #            - scan-backend
 #            - scan-frontend
             - configure-infrastructure
       - deploy-frontend:
           requires:
-            - test-backend
+            - run-migrations
             - test-frontend
 #            - scan-backend
 #            - scan-frontend
