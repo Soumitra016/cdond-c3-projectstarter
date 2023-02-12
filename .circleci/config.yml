@@ -515,7 +515,7 @@ workflows:
       - configure-infrastructure:
           requires: [deploy-infrastructure]
           context: UDAPEOPLE_SLACK
-      - run-migrations
+      - run-migrations:
           requires: [configure-infrastructure]
       - deploy-frontend:
           requires: [run-migrations]
